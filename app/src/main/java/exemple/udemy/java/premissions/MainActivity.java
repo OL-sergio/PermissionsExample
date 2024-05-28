@@ -5,8 +5,10 @@ import static android.content.ContentValues.TAG;
 
 import android.Manifest;
 import android.app.AlertDialog;
+
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -20,6 +22,7 @@ import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -42,27 +45,35 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+        checkStoragePermissions();
+        requestForStoragePermissions();
 
-        Permissions permissions = new Permissions();
-
-        if (!permissions.checkStoragePermissions()) {
-          requestForStoragePermissions();
-        } else {
             // Permissions are granted, proceed with your logic
 
-        }
 
         //Permissions.validatePermissions(chekPermissions, this, STORAGE_PERMISSION_CODE);
 
     }
 
+    public boolean checkStoragePermissions(){
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+            //Android is 11 (R) or above
+            return Environment.isExternalStorageManager();
+        }else {
+            //Below android 11
+            int write = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            int read = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
 
-    public void requestForStoragePermissions() {
+            return read == PackageManager.PERMISSION_GRANTED && write == PackageManager.PERMISSION_GRANTED;
+        }
+    }
+
+    private void requestForStoragePermissions() {
         //Android is 11 (R) or above
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
             try {
                 Intent intent = new Intent();
-                intent.setAction(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                intent.setAction(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                 Uri uri = Uri.fromParts("package", this.getPackageName(), null);
                 intent.setData(uri);
                 storageActivityResultLauncher.launch(intent);
@@ -76,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(
                     this,
                     new String[]{
-                            android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE,
                             Manifest.permission.READ_EXTERNAL_STORAGE
                     },
                     STORAGE_PERMISSION_CODE
@@ -85,9 +96,25 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if(requestCode == STORAGE_PERMISSION_CODE){
+            if(grantResults.length > 0){
+                boolean write = grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                boolean read = grantResults[1] == PackageManager.PERMISSION_GRANTED;
+
+                if(read && write){
+                    Toast.makeText(MainActivity.this, "Storage Permissions Granted", Toast.LENGTH_SHORT).show();
+                }else{
+                    Toast.makeText(MainActivity.this, "Storage Permissions Denied", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
+    }
 
 
-    public final ActivityResultLauncher<Intent> storageActivityResultLauncher =
+    private final ActivityResultLauncher<Intent> storageActivityResultLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
                     new ActivityResultCallback<ActivityResult>(){
 
@@ -99,18 +126,18 @@ public class MainActivity extends AppCompatActivity {
                                     //Manage External Storage Permissions Granted
                                     Log.d(TAG, "onActivityResult: Manage External Storage Permissions Granted");
                                 }else{
-                                    Toast.makeText( MainActivity.this, "Storage Permissions Denied", Toast.LENGTH_SHORT).show();
-                                    alertValidatePermissions();
-
+                                    Toast.makeText(MainActivity.this, "Storage Permissions Denied", Toast.LENGTH_SHORT).show();
+                                alertValidatePermissions();
                                 }
                             }else{
                                 //Below android 11
+
                             }
-
-
                         }
-
                     });
+
+
+
 
     private void alertValidatePermissions(){
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -120,7 +147,7 @@ public class MainActivity extends AppCompatActivity {
         builder.setPositiveButton("confirmar", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                finish();
+               // finish();
 
             }
         });
